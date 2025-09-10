@@ -343,21 +343,17 @@ export function GlyphFieldsControls() {
             COLOUR PALETTE
           </h2>
           
-          <div className="space-y-2">
+          <div className="space-y-3">
+            {/* Active Palette - Full Detail */}
             {Object.entries(PALETTES)
-              .filter(([name]) => isLightMode ? name.startsWith("Light") : !name.startsWith("Light"))
+              .filter(([name]) => name === currentPalette)
               .map(([name, palette]) => (
-                <button
+                <div
                   key={name}
-                  onClick={() => setPalette(name)}
-                  className={`w-full p-2.5 rounded-lg border transition-all ${
-                    currentPalette === name
-                      ? isLightMode
-                        ? "border-gray-400 bg-gray-50 shadow-sm"
-                        : "border-zinc-600 bg-zinc-900 shadow-sm"
-                      : isLightMode
-                        ? "border-gray-200 hover:border-gray-300"
-                        : "border-zinc-800 hover:border-zinc-700"
+                  className={`w-full p-3 rounded-lg border ${
+                    isLightMode
+                      ? "border-gray-400 bg-gray-50 shadow-sm"
+                      : "border-zinc-600 bg-zinc-900 shadow-sm"
                   }`}
                 >
                   <div className="space-y-2">
@@ -367,20 +363,52 @@ export function GlyphFieldsControls() {
                       }`}>
                         {name.replace("Light ", "")}
                       </span>
-                      {currentPalette === name && (
-                        <span className={`text-[10px] px-2 py-0.5 rounded ${
-                          isLightMode
-                            ? "bg-gray-200 text-gray-600"
-                            : "bg-zinc-800 text-zinc-400"
-                        }`}>
-                          ACTIVE
-                        </span>
-                      )}
+                      <span className={`text-[10px] px-2 py-0.5 rounded ${
+                        isLightMode
+                          ? "bg-gray-200 text-gray-600"
+                          : "bg-zinc-800 text-zinc-400"
+                      }`}>
+                        ACTIVE
+                      </span>
                     </div>
                     <PalettePreview palette={palette} />
                   </div>
-                </button>
+                </div>
               ))}
+
+            {/* Other Palettes - Condensed Grid */}
+            <div className="grid grid-cols-2 gap-2">
+              {Object.entries(PALETTES)
+                .filter(([name]) => name !== currentPalette)
+                .map(([name, palette]) => (
+                  <button
+                    key={name}
+                    onClick={() => setPalette(name)}
+                    className={`p-2 rounded border transition-all text-left ${
+                      isLightMode
+                        ? "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                        : "border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900"
+                    }`}
+                  >
+                    <div className="space-y-1.5">
+                      <span className={`text-[10px] font-medium block truncate ${
+                        isLightMode ? "text-gray-700" : "text-zinc-300"
+                      }`}>
+                        {name.replace("Light ", "")}
+                      </span>
+                      <div className="flex gap-0.5 h-3 rounded overflow-hidden">
+                        {palette.colors.slice(0, 6).map((color, i) => (
+                          <div
+                            key={i}
+                            className="flex-1"
+                            style={{ backgroundColor: color }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+            </div>
           </div>
         </section>
 
@@ -588,7 +616,8 @@ export function GlyphFieldsControls() {
           </div>
         </section>
 
-        {/* Advanced Section */}
+        {/* Advanced Section - Hidden */}
+        {/* 
         <section>
           <h2 className={`text-xs font-mono tracking-wider mb-3 ${
             isLightMode ? "text-gray-700" : "text-zinc-300"
@@ -602,6 +631,7 @@ export function GlyphFieldsControls() {
             <LayerControls layerName="front" layer={layers.front} />
           </div>
         </section>
+        */}
       </div>
     </div>
   )

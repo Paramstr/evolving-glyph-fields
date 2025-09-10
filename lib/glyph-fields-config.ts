@@ -136,6 +136,57 @@ export const PALETTES = {
       "#55a3ff", // light blue
     ],
   },
+  "Neon Mosaic": {
+    background: "#1a1a1a",
+    colors: [
+      "#7fff00", // chartreuse
+      "#ff1493", // deep pink
+      "#ff4500", // orange red
+      "#ffd700", // gold
+      "#ff69b4", // hot pink
+      "#32cd32", // lime green
+      "#ff6347", // tomato
+      "#da70d6", // orchid
+      "#ffff00", // yellow
+      "#ff00ff", // magenta
+      "#adff2f", // green yellow
+      "#ffffff", // white
+    ],
+  },
+  "Digital Glitch": {
+    background: "#f0f0f0",
+    colors: [
+      "#00ffff", // cyan
+      "#00ff00", // lime
+      "#ff00ff", // magenta
+      "#0080ff", // dodger blue
+      "#ff0080", // deep pink
+      "#80ff00", // chartreuse
+      "#8000ff", // violet
+      "#ff8000", // orange
+      "#00ff80", // spring green
+      "#ff0040", // red
+      "#40ff00", // bright green
+      "#0040ff", // blue
+    ],
+  },
+  "Bold Stripes": {
+    background: "#000000",
+    colors: [
+      "#ff0000", // pure red
+      "#0000ff", // pure blue
+      "#ffff00", // pure yellow
+      "#008000", // green
+      "#ffffff", // white
+      "#000000", // black
+      "#ffa500", // orange
+      "#800080", // purple
+      "#ff4500", // red orange
+      "#1e90ff", // dodger blue
+      "#32cd32", // lime green
+      "#dc143c", // crimson
+    ],
+  },
 }
 
 export const PRESETS = {
@@ -194,5 +245,26 @@ export const PRESETS = {
     decayRate: 0.001,
     overlayRate: 0.003,
     currentPalette: "Light Warmth",
+  },
+  "Neon Mosaic": {
+    density: 0.28,
+    agentCount: 16,
+    decayRate: 0.0035,
+    overlayRate: 0.007,
+    currentPalette: "Neon Mosaic",
+  },
+  "Digital Glitch": {
+    density: 0.24,
+    agentCount: 18,
+    decayRate: 0.004,
+    overlayRate: 0.008,
+    currentPalette: "Digital Glitch",
+  },
+  "Bold Stripes": {
+    density: 0.3,
+    agentCount: 12,
+    decayRate: 0.002,
+    overlayRate: 0.005,
+    currentPalette: "Bold Stripes",
   },
 }
