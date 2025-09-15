@@ -1,3 +1,61 @@
+// Truffle-specific gradient palettes - Brutalist/Authoritarian aesthetic
+export const TRUFFLE_PALETTES = {
+  "State Blue": {
+    background: "#f1f5f9", // Slightly grey-ish white
+    gradients: [
+      ["#e2e8f0", "#cbd5e1"], // Light Grey → Medium Grey
+      ["#cbd5e1", "#1e40af"], // Medium Grey → Deep Blue
+      ["#1e40af", "#1e3a8a"], // Deep Blue → Navy
+      ["#e2e8f0", "#1e40af"], // Light Grey → Deep Blue
+    ],
+  },
+  "Party Red": {
+    background: "#f1f5f9", // Slightly grey-ish white
+    gradients: [
+      ["#e2e8f0", "#fecaca"], // Light Grey → Light Red
+      ["#fecaca", "#dc2626"], // Light Red → Strong Red
+      ["#dc2626", "#991b1b"], // Strong Red → Dark Red
+      ["#e2e8f0", "#dc2626"], // Light Grey → Strong Red
+    ],
+  },
+  "Monolith": {
+    background: "#000000", // Pure black
+    gradients: [
+      ["#e5e7eb", "#d1d5db"], // Light Grey → Medium Grey
+      ["#d1d5db", "#6b7280"], // Medium Grey → Darker Grey
+      ["#6b7280", "#374151"], // Darker Grey → Dark Grey
+      ["#374151", "#000000"], // Dark Grey → Black
+    ],
+  },
+  "Cold War": {
+    background: "#1f2937", // Dark background
+    gradients: [
+      ["#d1d5db", "#1e40af"], // Medium Grey → Blue
+      ["#1e40af", "#dc2626"], // Blue → Red
+      ["#dc2626", "#d1d5db"], // Red → Medium Grey
+      ["#000000", "#e5e7eb"], // Black → Light Grey
+    ],
+  },
+  "Ministry": {
+    background: "#f3f4f6", // Light grey background
+    gradients: [
+      ["#e5e7eb", "#374151"], // Light Grey → Charcoal
+      ["#374151", "#e5e7eb"], // Charcoal → Light Grey
+      ["#d1d5db", "#1f2937"], // Medium Grey → Dark Grey
+      ["#1f2937", "#d1d5db"], // Dark Grey → Medium Grey
+    ],
+  },
+  "Propaganda": {
+    background: "#dc2626", // Bold red background
+    gradients: [
+      ["#e5e7eb", "#fecaca"], // Light Grey → Pink
+      ["#fecaca", "#e5e7eb"], // Pink → Light Grey
+      ["#dc2626", "#e5e7eb"], // Red → Light Grey
+      ["#e5e7eb", "#000000"], // Light Grey → Black
+    ],
+  },
+};
+
 export const PALETTES = {
   "Warm Sunset": {
     background: "#1a1a1a",

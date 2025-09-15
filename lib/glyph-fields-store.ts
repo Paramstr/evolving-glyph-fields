@@ -1,4 +1,5 @@
 import { create } from "zustand"
+import { AlgorithmType } from "./glyph-fields-engine"
 import { PRESETS } from "./glyph-fields-config"
 
 interface LayerProperties {
@@ -21,6 +22,12 @@ interface GlyphFieldsState {
   currentPalette: string
   isLightMode: boolean
   activeTab: string
+  truffleMode: boolean
+  trufflePalette: string
+  algorithm: AlgorithmType
+  zoom: number
+  panX: number
+  panY: number
   
   // Layer-specific properties
   layers: {
@@ -44,11 +51,17 @@ interface GlyphFieldsState {
   randomize: () => void
   setActiveTab: (tab: string) => void
   setLayerProperty: (layer: 'back' | 'middle' | 'front', property: keyof LayerProperties, value: number | string) => void
+  toggleTruffleMode: () => void
+  setTrufflePalette: (palette: string) => void
+  setAlgorithm: (algorithm: AlgorithmType) => void
+  setZoom: (zoom: number) => void
+  setPan: (x: number, y: number) => void
+  resetView: () => void
 }
 
 export const useGlyphFieldsStore = create<GlyphFieldsState>((set, get) => ({
   isPlaying: true,
-  seed: Math.floor(Math.random() * 10000),
+  seed: 1234, // Fixed seed for SSR compatibility
   density: 0.3,
   agentCount: 8,
   decayRate: 0.005,
@@ -57,6 +70,12 @@ export const useGlyphFieldsStore = create<GlyphFieldsState>((set, get) => ({
   currentPalette: "Light Pastels",
   isLightMode: true,
   activeTab: "basic",
+  truffleMode: false,
+  trufflePalette: "State Blue",
+  algorithm: "emergent-complexity",
+  zoom: 1,
+  panX: 0,
+  panY: 0,
   
   layers: {
     back: {
@@ -95,7 +114,7 @@ export const useGlyphFieldsStore = create<GlyphFieldsState>((set, get) => ({
   setPalette: (currentPalette) => set({ currentPalette }),
 
   loadPreset: (presetName) => {
-    const preset = PRESETS[presetName]
+    const preset = (PRESETS as any)[presetName]
     if (preset) {
       set(preset)
     }
@@ -103,7 +122,7 @@ export const useGlyphFieldsStore = create<GlyphFieldsState>((set, get) => ({
 
   reset: () =>
     set({
-      seed: Math.floor(Math.random() * 10000),
+      seed: typeof window !== 'undefined' ? Math.floor(Math.random() * 10000) : 1234,
       density: 0.3,
       agentCount: 8,
       decayRate: 0.005,
@@ -134,20 +153,22 @@ export const useGlyphFieldsStore = create<GlyphFieldsState>((set, get) => ({
   regenerate: () => {
     const currentState = get()
     set({
-      seed: Math.floor(Math.random() * 10000),
+      seed: typeof window !== 'undefined' ? Math.floor(Math.random() * 10000) : 1234,
       // Keep all other parameters the same
     })
   },
 
   randomize: () => {
-    set({
-      seed: Math.floor(Math.random() * 10000),
-      density: 0.1 + Math.random() * 1.9, // 0.1 to 2.0
-      agentCount: Math.floor(Math.random() * 100), // 0 to 100
-      decayRate: 0.001 + Math.random() * 0.099, // 0.001 to 0.1
-      overlayRate: 0.001 + Math.random() * 0.049, // 0.001 to 0.05
-      speed: Math.floor(10 + Math.random() * 110), // 10 to 120
-    })
+    if (typeof window !== 'undefined') {
+      set({
+        seed: Math.floor(Math.random() * 10000),
+        density: 0.1 + Math.random() * 1.9, // 0.1 to 2.0
+        agentCount: Math.floor(Math.random() * 100), // 0 to 100
+        decayRate: 0.001 + Math.random() * 0.099, // 0.001 to 0.1
+        overlayRate: 0.001 + Math.random() * 0.049, // 0.001 to 0.05
+        speed: Math.floor(10 + Math.random() * 110), // 10 to 120
+      })
+    }
   },
   
   setActiveTab: (tab) => set({ activeTab: tab }),
@@ -161,4 +182,11 @@ export const useGlyphFieldsStore = create<GlyphFieldsState>((set, get) => ({
       }
     }
   })),
+
+  toggleTruffleMode: () => set((state) => ({ truffleMode: !state.truffleMode })),
+  setTrufflePalette: (trufflePalette) => set({ trufflePalette }),
+  setAlgorithm: (algorithm) => set({ algorithm }),
+  setZoom: (zoom) => set({ zoom }),
+  setPan: (panX, panY) => set({ panX, panY }),
+  resetView: () => set({ zoom: 1, panX: 0, panY: 0 }),
 }))
