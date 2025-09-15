@@ -1,4 +1,6 @@
-import { PALETTES } from "./glyph-fields-config"
+import { PALETTES, TRUFFLE_PALETTES } from "./glyph-fields-config"
+
+export type AlgorithmType = "gentle-chaos" | "rhythmic-chaos" | "emergent-complexity"
 
 export interface EngineParams {
   seed: number
@@ -7,6 +9,12 @@ export interface EngineParams {
   decayRate: number
   overlayRate: number
   palette: string
+  truffleMode: boolean
+  trufflePalette: string
+  zoom: number
+  panX: number
+  panY: number
+  algorithm: AlgorithmType
 }
 
 export enum GlyphType {
@@ -17,6 +25,7 @@ export enum GlyphType {
   STRIPE = 4, // vertical stripes
   RING = 5, // hollow circles
   HATCH = 6, // diagonal hatching
+  TRUFFLE = 7, // rounded square with gradient
 }
 
 interface Cell {
@@ -26,6 +35,7 @@ interface Cell {
   age: number
   layer: number
   clusterSeed: number // Added cluster identification
+  gradientIndex: number // For truffle gradient selection
 }
 
 interface Agent {
@@ -57,12 +67,13 @@ export class GlyphFieldsEngine {
   private ctx: CanvasRenderingContext2D
   private width: number
   private height: number
+  private baseCellSize: number
   private cellSize: number
   private gridWidth: number
   private gridHeight: number
 
-  private grid: Cell[][]
-  private agents: Agent[]
+  private grid: Cell[][] = []
+  private agents: Agent[] = []
   private rng: () => number
   private tick: number
   private params: EngineParams
@@ -74,7 +85,8 @@ export class GlyphFieldsEngine {
     this.ctx = ctx
     this.width = canvas.width
     this.height = canvas.height
-    this.cellSize = 24
+    this.baseCellSize = 24
+    this.cellSize = this.baseCellSize * params.zoom
     this.gridWidth = Math.floor(this.width / this.cellSize)
     this.gridHeight = Math.floor(this.height / this.cellSize)
     this.params = params
@@ -95,6 +107,8 @@ export class GlyphFieldsEngine {
     this.canvas.width = width
     this.canvas.height = height
 
+    // Recalculate cell size based on current zoom
+    this.cellSize = this.baseCellSize * this.params.zoom
     const newGridWidth = Math.floor(this.width / this.cellSize)
     const newGridHeight = Math.floor(this.height / this.cellSize)
 
@@ -138,6 +152,7 @@ export class GlyphFieldsEngine {
             age: 0,
             layer: 0,
             clusterSeed: -1,
+            gradientIndex: 0,
           })),
       )
   }
@@ -157,7 +172,7 @@ export class GlyphFieldsEngine {
           energy: 100,
           lastDrop: 0,
           layer: layer,
-          glyphType: Math.floor(this.rng() * 6) + 1,
+          glyphType: this.params.truffleMode && this.rng() < 0.08 ? GlyphType.TRUFFLE : Math.floor(this.rng() * 6) + 1,
           clusterSeed: -1,
         })
       }
@@ -173,7 +188,7 @@ export class GlyphFieldsEngine {
       const cluster: ClusterSeed = {
         x: Math.floor(this.rng() * this.gridWidth),
         y: Math.floor(this.rng() * this.gridHeight),
-        glyphType: Math.floor(this.rng() * 6) + 1,
+        glyphType: this.params.truffleMode && this.rng() < 0.05 ? GlyphType.TRUFFLE : Math.floor(this.rng() * 6) + 1,
         colorIndex: Math.floor(this.rng() * 12),
         layer: Math.floor(this.rng() * 3),
         maxRadius: 5 + Math.floor(this.rng() * 10),
@@ -191,6 +206,7 @@ export class GlyphFieldsEngine {
         cell.opacity = 0.8
         cell.layer = cluster.layer
         cell.clusterSeed = cluster.id
+        cell.gradientIndex = Math.floor(this.rng() * 6)
       }
     }
   }
@@ -202,14 +218,34 @@ export class GlyphFieldsEngine {
     this.updateClusters()
     this.updateAgents()
 
+    // Natural overlay rate for organic evolution
     if (this.rng() < this.params.overlayRate) {
       this.addOverlay()
+    }
+
+    // Cascade effects - changes spread naturally
+    if (this.tick % 50 === 0) {
+      this.propagateCascadeEffects()
     }
 
     this.updateAging()
   }
 
   private updateCellularAutomaton() {
+    switch (this.params.algorithm) {
+      case "gentle-chaos":
+        this.updateGentleChaos()
+        break
+      case "rhythmic-chaos":
+        this.updateRhythmicChaos()
+        break
+      case "emergent-complexity":
+        this.updateEmergentComplexity()
+        break
+    }
+  }
+
+  private updateGentleChaos() {
     const newGrid: Cell[][] = Array(this.gridHeight)
       .fill(null)
       .map(() =>
@@ -222,6 +258,168 @@ export class GlyphFieldsEngine {
             age: 0,
             layer: 0,
             clusterSeed: -1,
+            gradientIndex: 0,
+          })),
+      )
+
+    for (let y = 0; y < this.gridHeight; y++) {
+      for (let x = 0; x < this.gridWidth; x++) {
+        const cell = this.grid[y][x]
+        const neighbors = this.getNeighbors(x, y)
+        const aliveNeighbors = neighbors.filter(n => n.glyph !== GlyphType.EMPTY)
+        const neighborCount = aliveNeighbors.length
+
+        newGrid[y][x] = { ...cell }
+
+        if (cell.glyph === GlyphType.EMPTY) {
+          // Gentle birth rules - standard Conway with slight variations
+          const shouldBirth = neighborCount === 3 || (neighborCount === 2 && this.rng() < 0.1)
+          
+          if (shouldBirth) {
+            const dominantGlyph = this.getDominantGlyph(aliveNeighbors)
+            if (dominantGlyph) {
+              // Low mutation rate for gentle chaos (2%)
+              if (this.rng() < 0.02) {
+                newGrid[y][x].glyph = this.params.truffleMode && this.rng() < 0.05 ? GlyphType.TRUFFLE : Math.floor(this.rng() * 6) + 1
+                newGrid[y][x].colorIndex = Math.floor(this.rng() * 12)
+              } else {
+                newGrid[y][x].glyph = this.params.truffleMode && this.rng() < 0.05 ? GlyphType.TRUFFLE : dominantGlyph.glyph
+                newGrid[y][x].colorIndex = dominantGlyph.colorIndex
+              }
+              newGrid[y][x].opacity = 0.6
+              newGrid[y][x].age = 0
+              newGrid[y][x].layer = Math.floor(this.rng() * 3)
+              newGrid[y][x].clusterSeed = dominantGlyph.clusterSeed
+              newGrid[y][x].gradientIndex = Math.floor(this.rng() * 6)
+            }
+          }
+        } else {
+          // Gentle survival - standard Conway rules
+          const survives = neighborCount === 2 || neighborCount === 3
+          
+          if (survives) {
+            newGrid[y][x].opacity = Math.min(1, newGrid[y][x].opacity * 1.01)
+          } else {
+            newGrid[y][x].opacity *= 0.92
+          }
+
+          if (newGrid[y][x].opacity < 0.1) {
+            newGrid[y][x].glyph = GlyphType.EMPTY
+            newGrid[y][x].opacity = 0
+          }
+        }
+      }
+    }
+
+    this.grid = newGrid
+  }
+
+  private updateRhythmicChaos() {
+    const newGrid: Cell[][] = Array(this.gridHeight)
+      .fill(null)
+      .map(() =>
+        Array(this.gridWidth)
+          .fill(null)
+          .map(() => ({
+            glyph: GlyphType.EMPTY,
+            colorIndex: 0,
+            opacity: 0,
+            age: 0,
+            layer: 0,
+            clusterSeed: -1,
+            gradientIndex: 0,
+          })),
+      )
+
+    // Rhythmic pulse - changes every 30 ticks
+    const pulsePhase = Math.floor(this.tick / 30) % 3
+    
+    for (let y = 0; y < this.gridHeight; y++) {
+      for (let x = 0; x < this.gridWidth; x++) {
+        const cell = this.grid[y][x]
+        const neighbors = this.getNeighbors(x, y)
+        const aliveNeighbors = neighbors.filter(n => n.glyph !== GlyphType.EMPTY)
+        const neighborCount = aliveNeighbors.length
+
+        newGrid[y][x] = { ...cell }
+
+        if (cell.glyph === GlyphType.EMPTY) {
+          // Rhythmic birth rules change with pulse
+          let shouldBirth = false
+          if (pulsePhase === 0) {
+            // Conservative phase
+            shouldBirth = neighborCount === 3
+          } else if (pulsePhase === 1) {
+            // Active phase
+            shouldBirth = neighborCount === 2 || neighborCount === 3 || neighborCount === 4
+          } else {
+            // Chaotic phase
+            shouldBirth = neighborCount >= 2 && neighborCount <= 5 && this.rng() < 0.7
+          }
+          
+          if (shouldBirth) {
+            const dominantGlyph = this.getDominantGlyph(aliveNeighbors)
+            if (dominantGlyph) {
+              // Rhythmic mutation rate varies with pulse
+              const mutationRate = pulsePhase === 2 ? 0.08 : 0.03
+              
+              if (this.rng() < mutationRate) {
+                newGrid[y][x].glyph = this.params.truffleMode && this.rng() < 0.07 ? GlyphType.TRUFFLE : Math.floor(this.rng() * 6) + 1
+                newGrid[y][x].colorIndex = Math.floor(this.rng() * 12)
+              } else {
+                newGrid[y][x].glyph = this.params.truffleMode && this.rng() < 0.07 ? GlyphType.TRUFFLE : dominantGlyph.glyph
+                newGrid[y][x].colorIndex = dominantGlyph.colorIndex
+              }
+              newGrid[y][x].opacity = 0.5 + (pulsePhase * 0.2)
+              newGrid[y][x].age = 0
+              newGrid[y][x].layer = Math.floor(this.rng() * 3)
+              newGrid[y][x].clusterSeed = dominantGlyph.clusterSeed
+              newGrid[y][x].gradientIndex = Math.floor(this.rng() * 6)
+            }
+          }
+        } else {
+          // Rhythmic survival rules
+          let survives = false
+          if (pulsePhase === 0) {
+            survives = neighborCount === 2 || neighborCount === 3
+          } else if (pulsePhase === 1) {
+            survives = neighborCount >= 1 && neighborCount <= 4
+          } else {
+            survives = neighborCount >= 1 && neighborCount <= 6
+          }
+          
+          if (survives) {
+            newGrid[y][x].opacity = Math.min(1, newGrid[y][x].opacity * 1.02)
+          } else {
+            newGrid[y][x].opacity *= (pulsePhase === 2 ? 0.85 : 0.9)
+          }
+
+          const clearThreshold = pulsePhase === 2 ? 0.15 : 0.08
+          if (newGrid[y][x].opacity < clearThreshold) {
+            newGrid[y][x].glyph = GlyphType.EMPTY
+            newGrid[y][x].opacity = 0
+          }
+        }
+      }
+    }
+
+    this.grid = newGrid
+  }
+
+  private updateEmergentComplexity() {
+    const newGrid: Cell[][] = Array(this.gridHeight)
+      .fill(null)
+      .map(() =>
+        Array(this.gridWidth)
+          .fill(null)
+          .map(() => ({
+            glyph: GlyphType.EMPTY,
+            colorIndex: 0,
+            opacity: 0,
+            age: 0,
+            layer: 0,
+            clusterSeed: -1,
+            gradientIndex: 0,
           })),
       )
 
@@ -235,40 +433,60 @@ export class GlyphFieldsEngine {
         newGrid[y][x] = { ...cell }
 
         if (cell.glyph === GlyphType.EMPTY) {
-          // Birth rule: empty cells can spawn new glyphs based on neighbors
-          if (neighborCount === 3 || (neighborCount === 2 && this.rng() < 0.1)) {
+          // Layer-specific birth rules based on Conway variants
+          let shouldBirth = false
+          
+          if (cell.layer === 0) {
+            // Background layer: Classic Conway's birth rule
+            shouldBirth = neighborCount === 3
+          } else if (cell.layer === 1) {
+            // Middle layer: More permissive birth
+            shouldBirth = neighborCount === 3 || (neighborCount === 2 && this.rng() < 0.2)
+          } else {
+            // Front layer: Day & Night rules - birth on even numbers
+            shouldBirth = neighborCount === 2 || neighborCount === 4 || neighborCount === 6
+          }
+          
+          if (shouldBirth) {
             const dominantGlyph = this.getDominantGlyph(aliveNeighbors)
             if (dominantGlyph) {
-              newGrid[y][x].glyph = dominantGlyph.glyph
-              newGrid[y][x].colorIndex = dominantGlyph.colorIndex
-              newGrid[y][x].opacity = 0.3
+              // Minimal mutation during birth (3% chance)
+              if (this.rng() < 0.03) {
+                newGrid[y][x].glyph = this.params.truffleMode && this.rng() < 0.06 ? GlyphType.TRUFFLE : Math.floor(this.rng() * 6) + 1
+                newGrid[y][x].colorIndex = Math.floor(this.rng() * 12)
+              } else {
+                newGrid[y][x].glyph = this.params.truffleMode && this.rng() < 0.06 ? GlyphType.TRUFFLE : dominantGlyph.glyph
+                newGrid[y][x].colorIndex = dominantGlyph.colorIndex
+              }
+              newGrid[y][x].opacity = 0.5
               newGrid[y][x].age = 0
               newGrid[y][x].layer = dominantGlyph.layer
               newGrid[y][x].clusterSeed = dominantGlyph.clusterSeed
+              newGrid[y][x].gradientIndex = Math.floor(this.rng() * 6)
             }
           }
         } else {
-          // Survival rules based on layer
+          // Layer-specific survival rules
+          let survives = false
+          
           if (cell.layer === 0) {
-            // Background layer: stable, slower decay
-            if (neighborCount < 2 || neighborCount > 6) {
-              newGrid[y][x].opacity *= 0.95
-            } else {
-              newGrid[y][x].opacity = Math.min(1, newGrid[y][x].opacity * 1.02)
-            }
+            // Background layer: Classic Conway survival
+            survives = neighborCount === 2 || neighborCount === 3
           } else if (cell.layer === 1) {
-            // Middle layer: standard Conway's rules
-            if (neighborCount < 2 || neighborCount > 3) {
-              newGrid[y][x].opacity *= 0.9
-            }
+            // Middle layer: More flexible survival
+            survives = neighborCount >= 2 && neighborCount <= 4
           } else {
-            // Front layer: more chaotic
-            if (neighborCount < 1 || neighborCount > 4) {
-              newGrid[y][x].opacity *= 0.85
-            }
+            // Front layer: Day & Night survival - odd numbers
+            survives = neighborCount === 1 || neighborCount === 3 || neighborCount === 5
+          }
+          
+          if (survives) {
+            newGrid[y][x].opacity = Math.min(1, newGrid[y][x].opacity * 1.02)
+          } else {
+            newGrid[y][x].opacity *= 0.9
           }
 
-          // Clear cells that are too faint
+          // Standard clearing threshold
           if (newGrid[y][x].opacity < 0.05) {
             newGrid[y][x].glyph = GlyphType.EMPTY
             newGrid[y][x].opacity = 0
@@ -333,12 +551,13 @@ export class GlyphFieldsEngine {
                 const cell = this.grid[ny][nx]
                 
                 if (cell.glyph === GlyphType.EMPTY && this.rng() < 0.3 / (dist + 1)) {
-                  cell.glyph = cluster.glyphType
+                  cell.glyph = this.params.truffleMode && this.rng() < 0.07 ? GlyphType.TRUFFLE : cluster.glyphType
                   cell.colorIndex = cluster.colorIndex + Math.floor(this.rng() * 3) - 1
                   cell.opacity = Math.max(0.3, 1 - dist * 0.1)
                   cell.age = 0
                   cell.layer = cluster.layer
                   cell.clusterSeed = cluster.id
+                  cell.gradientIndex = Math.floor(this.rng() * 6)
                 }
               }
             }
@@ -350,19 +569,26 @@ export class GlyphFieldsEngine {
 
   private updateAgents() {
     for (const agent of this.agents) {
-      // Update velocity with random walk
+      // Gentle random walk for natural movement
       agent.vx += (this.rng() - 0.5) * 0.2
       agent.vy += (this.rng() - 0.5) * 0.2
 
-      // Damping
-      agent.vx *= 0.98
-      agent.vy *= 0.98
+      // Attraction to truffle glyphs for emergent behavior
+      if (this.params.truffleMode) {
+        const attractionForce = this.calculateTruffleAttraction(agent)
+        agent.vx += attractionForce.x * 0.1
+        agent.vy += attractionForce.y * 0.1
+      }
 
-      // Speed limit
+      // Natural damping
+      agent.vx *= 0.95
+      agent.vy *= 0.95
+
+      // Reasonable speed limit
       const speed = Math.sqrt(agent.vx * agent.vx + agent.vy * agent.vy)
-      if (speed > 1) {
-        agent.vx = (agent.vx / speed) * 1
-        agent.vy = (agent.vy / speed) * 1
+      if (speed > 1.5) {
+        agent.vx = (agent.vx / speed) * 1.5
+        agent.vy = (agent.vy / speed) * 1.5
       }
 
       // Update position
@@ -387,24 +613,66 @@ export class GlyphFieldsEngine {
           const cell = this.grid[gy][gx]
 
           if (cell.glyph === GlyphType.EMPTY || (cell.opacity < 0.3 && this.rng() < 0.3)) {
-            cell.glyph = agent.glyphType
+            cell.glyph = this.params.truffleMode && this.rng() < 0.06 ? GlyphType.TRUFFLE : agent.glyphType
             cell.colorIndex = Math.floor(this.rng() * 12)
             cell.opacity = Math.min(1, cell.opacity + 0.5)
             cell.age = 0
             cell.layer = agent.layer
             cell.clusterSeed = agent.clusterSeed
+            cell.gradientIndex = Math.floor(this.rng() * 6)
 
             agent.energy -= 20
             agent.lastDrop = this.tick
 
-            // Randomly change glyph type occasionally
-            if (this.rng() < 0.1) {
-              agent.glyphType = Math.floor(this.rng() * 6) + 1
+            // Minimal mutations for emergent complexity
+            if (this.rng() < 0.05) {
+              agent.glyphType = this.params.truffleMode && this.rng() < 0.08 ? GlyphType.TRUFFLE : Math.floor(this.rng() * 6) + 1
             }
           }
         }
       }
     }
+  }
+
+  private calculateTruffleAttraction(agent: Agent): { x: number; y: number } {
+    let totalForceX = 0
+    let totalForceY = 0
+    let truffleCount = 0
+
+    // Look for truffle glyphs within attraction radius
+    const radius = 8
+    const startX = Math.max(0, Math.floor(agent.x - radius))
+    const endX = Math.min(this.gridWidth, Math.floor(agent.x + radius))
+    const startY = Math.max(0, Math.floor(agent.y - radius))
+    const endY = Math.min(this.gridHeight, Math.floor(agent.y + radius))
+
+    for (let y = startY; y < endY; y++) {
+      for (let x = startX; x < endX; x++) {
+        const cell = this.grid[y][x]
+        if (cell.glyph === GlyphType.TRUFFLE) {
+          const dx = x - agent.x
+          const dy = y - agent.y
+          const distance = Math.sqrt(dx * dx + dy * dy)
+          
+          if (distance > 0 && distance <= radius) {
+            // Attraction force inversely proportional to distance
+            const force = (1 / (distance + 1)) * cell.opacity
+            totalForceX += (dx / distance) * force
+            totalForceY += (dy / distance) * force
+            truffleCount++
+          }
+        }
+      }
+    }
+
+    // Normalize and return
+    if (truffleCount > 0) {
+      return {
+        x: totalForceX / truffleCount,
+        y: totalForceY / truffleCount
+      }
+    }
+    return { x: 0, y: 0 }
   }
 
   private updateAging() {
@@ -436,60 +704,136 @@ export class GlyphFieldsEngine {
     const y = Math.floor(this.rng() * this.gridHeight)
     const cell = this.grid[y][x]
 
+    // Gentle overlay - only on empty cells
     if (cell.glyph === GlyphType.EMPTY) {
-      cell.glyph = Math.floor(this.rng() * 6) + 1
+      cell.glyph = this.params.truffleMode && this.rng() < 0.05 ? GlyphType.TRUFFLE : Math.floor(this.rng() * 6) + 1
       cell.colorIndex = Math.floor(this.rng() * 12)
-      cell.opacity = 0.2 + this.rng() * 0.3
+      cell.opacity = 0.3 + this.rng() * 0.4
       cell.age = 0
       cell.layer = Math.floor(this.rng() * 3)
       cell.clusterSeed = -1
+      cell.gradientIndex = Math.floor(this.rng() * 6)
     }
   }
 
-  public render() {
-    const palette = PALETTES[this.params.palette]
-
-    if (!palette) {
-      console.error(`[v0] Palette "${this.params.palette}" not found, using default`)
-      const defaultPalette = PALETTES["Warm Sunset"]
-      this.ctx.fillStyle = defaultPalette.background
-      this.ctx.fillRect(0, 0, this.width, this.height)
-      return
-    }
-
-    this.ctx.fillStyle = palette.background
-    this.ctx.fillRect(0, 0, this.width, this.height)
+  private propagateCascadeEffects() {
+    // Find active cells and propagate changes organically
+    const activeCells: { x: number; y: number; age: number }[] = []
     
-    // Render by layers
-    for (let layer = 0; layer < 3; layer++) {
-      for (let y = 0; y < this.gridHeight; y++) {
-        for (let x = 0; x < this.gridWidth; x++) {
-          const cell = this.grid[y][x]
-          if (cell.glyph !== GlyphType.EMPTY && cell.opacity > 0 && cell.layer === layer) {
-            this.renderGlyph(x, y, cell, palette)
+    for (let y = 0; y < this.gridHeight; y++) {
+      for (let x = 0; x < this.gridWidth; x++) {
+        const cell = this.grid[y][x]
+        if (cell.glyph !== GlyphType.EMPTY && cell.age > 50) {
+          activeCells.push({ x, y, age: cell.age })
+        }
+      }
+    }
+    
+    // Sort by age - older cells have more influence
+    activeCells.sort((a, b) => b.age - a.age)
+    
+    // Propagate from most influential cells
+    const numCascades = Math.min(3, activeCells.length)
+    for (let i = 0; i < numCascades; i++) {
+      const source = activeCells[i]
+      const sourceCell = this.grid[source.y][source.x]
+      
+      // Influence nearby empty cells
+      for (let dy = -2; dy <= 2; dy++) {
+        for (let dx = -2; dx <= 2; dx++) {
+          const x = source.x + dx
+          const y = source.y + dy
+          
+          if (x >= 0 && x < this.gridWidth && y >= 0 && y < this.gridHeight) {
+            const cell = this.grid[y][x]
+            const distance = Math.sqrt(dx * dx + dy * dy)
+            
+            if (cell.glyph === GlyphType.EMPTY && this.rng() < 0.1 / (distance + 1)) {
+              // Cascade effect - copy characteristics with slight variation
+              cell.glyph = sourceCell.glyph
+              cell.colorIndex = (sourceCell.colorIndex + Math.floor(this.rng() * 3) - 1 + 12) % 12
+              cell.opacity = 0.2 + this.rng() * 0.3
+              cell.age = 0
+              cell.layer = sourceCell.layer
+              cell.clusterSeed = sourceCell.clusterSeed
+              cell.gradientIndex = Math.floor(this.rng() * 6)
+            }
           }
         }
       }
     }
   }
 
-  private renderGlyph(x: number, y: number, cell: Cell, palette: any) {
-    const px = x * this.cellSize
-    const py = y * this.cellSize
+  public render() {
+    // Use truffle palette if in truffle mode, otherwise use regular palette
+    const palette = this.params.truffleMode 
+      ? (TRUFFLE_PALETTES as any)[this.params.trufflePalette] 
+      : (PALETTES as any)[this.params.palette]
+
+    if (!palette) {
+      console.error(`[v0] Palette not found, using default`)
+      const defaultPalette = this.params.truffleMode 
+        ? TRUFFLE_PALETTES["State Blue"] 
+        : PALETTES["Warm Sunset"]
+      this.ctx.fillStyle = defaultPalette.background
+      this.ctx.fillRect(0, 0, this.width, this.height)
+      return
+    }
+
+    // Update cell size based on current zoom
+    this.cellSize = this.baseCellSize * this.params.zoom
+
+    this.ctx.fillStyle = palette.background
+    this.ctx.fillRect(0, 0, this.width, this.height)
+    
+    // Calculate pan offset in pixels
+    const panOffsetX = this.params.panX
+    const panOffsetY = this.params.panY
+    
+    // Calculate which grid cells are visible in the viewport
+    const startX = Math.max(0, Math.floor(-panOffsetX / this.cellSize))
+    const endX = Math.min(this.gridWidth, Math.ceil((this.width - panOffsetX) / this.cellSize))
+    const startY = Math.max(0, Math.floor(-panOffsetY / this.cellSize))
+    const endY = Math.min(this.gridHeight, Math.ceil((this.height - panOffsetY) / this.cellSize))
+    
+    // Render by layers (only visible cells for performance)
+    for (let layer = 0; layer < 3; layer++) {
+      for (let y = startY; y < endY; y++) {
+        for (let x = startX; x < endX; x++) {
+          if (y < this.gridHeight && x < this.gridWidth) {
+            const cell = this.grid[y][x]
+            if (cell.glyph !== GlyphType.EMPTY && cell.opacity > 0 && cell.layer === layer) {
+              this.renderGlyph(x, y, cell, palette, panOffsetX, panOffsetY)
+            }
+          }
+        }
+      }
+    }
+  }
+
+  private renderGlyph(x: number, y: number, cell: Cell, palette: any, panOffsetX: number, panOffsetY: number) {
+    // Calculate pixel position with pan offset
+    const px = x * this.cellSize + panOffsetX
+    const py = y * this.cellSize + panOffsetY
     const size = this.cellSize
-    const color = palette.colors[cell.colorIndex % palette.colors.length]
 
     this.ctx.save()
     this.ctx.translate(px + size / 2, py + size / 2)
     this.ctx.globalAlpha = cell.opacity
-    
-    this.ctx.fillStyle = color
-    this.ctx.strokeStyle = color
-    this.ctx.lineWidth = 2
 
     const halfSize = size / 2
 
-    switch (cell.glyph) {
+    // Handle truffle rendering with gradients
+    if (cell.glyph === GlyphType.TRUFFLE && this.params.truffleMode) {
+      this.renderTruffle(halfSize, cell, palette)
+    } else {
+      // Regular glyph rendering
+      const color = palette.colors ? palette.colors[cell.colorIndex % palette.colors.length] : "#ffffff"
+      this.ctx.fillStyle = color
+      this.ctx.strokeStyle = color
+      this.ctx.lineWidth = Math.max(1, 2 * this.params.zoom) // Scale line width with zoom
+
+      switch (cell.glyph) {
       case GlyphType.GRID:
         this.ctx.fillRect(-halfSize * 0.8, -halfSize * 0.8, size * 0.8, size * 0.8)
         break
@@ -522,13 +866,96 @@ export class GlyphFieldsEngine {
           this.ctx.fillRect(i, -halfSize * 0.8, 2, size * 0.8)
         }
         break
+      }
     }
 
     this.ctx.restore()
   }
 
+  private renderTruffle(halfSize: number, cell: Cell, palette: any) {
+    // Get gradient colors from the truffle palette
+    if (!palette.gradients || palette.gradients.length === 0) return
+    
+    const gradientPair = palette.gradients[cell.gradientIndex % palette.gradients.length]
+    const [color1, color2] = gradientPair
+    
+    // Create radial gradient for 3D depth effect
+    const gradient = this.ctx.createRadialGradient(
+      -halfSize * 0.3, -halfSize * 0.3, 0,  // Inner circle (highlight position)
+      0, 0, halfSize * 0.9  // Outer circle
+    )
+    
+    gradient.addColorStop(0, color1)      // Light color at center
+    gradient.addColorStop(0.7, color2)   // Transition
+    gradient.addColorStop(1, this.darkenColor(color2, 0.3)) // Darker edge
+    
+    // Set higher resolution for smoother edges
+    this.ctx.imageSmoothingEnabled = true
+    this.ctx.imageSmoothingQuality = 'high'
+    
+    // Create the truffle shape (rounded square)
+    const cornerRadius = halfSize * 0.4 // 40% corner radius for puffy look
+    const width = halfSize * 1.6
+    const height = halfSize * 1.6
+    
+    this.ctx.fillStyle = gradient
+    this.ctx.beginPath()
+    
+    // Create rounded rectangle path
+    this.ctx.moveTo(-width/2 + cornerRadius, -height/2)
+    this.ctx.lineTo(width/2 - cornerRadius, -height/2)
+    this.ctx.quadraticCurveTo(width/2, -height/2, width/2, -height/2 + cornerRadius)
+    this.ctx.lineTo(width/2, height/2 - cornerRadius)
+    this.ctx.quadraticCurveTo(width/2, height/2, width/2 - cornerRadius, height/2)
+    this.ctx.lineTo(-width/2 + cornerRadius, height/2)
+    this.ctx.quadraticCurveTo(-width/2, height/2, -width/2, height/2 - cornerRadius)
+    this.ctx.lineTo(-width/2, -height/2 + cornerRadius)
+    this.ctx.quadraticCurveTo(-width/2, -height/2, -width/2 + cornerRadius, -height/2)
+    this.ctx.closePath()
+    
+    this.ctx.fill()
+    
+    // Add subtle inner glow/highlight
+    this.ctx.shadowColor = color1
+    this.ctx.shadowBlur = halfSize * 0.3
+    this.ctx.shadowOffsetX = -halfSize * 0.1
+    this.ctx.shadowOffsetY = -halfSize * 0.1
+    this.ctx.fill()
+    
+    // Reset shadow
+    this.ctx.shadowColor = 'transparent'
+    this.ctx.shadowBlur = 0
+    this.ctx.shadowOffsetX = 0
+    this.ctx.shadowOffsetY = 0
+  }
+  
+  private darkenColor(hex: string, factor: number): string {
+    // Remove # if present
+    hex = hex.replace('#', '')
+    
+    // Parse RGB values
+    const r = parseInt(hex.substr(0, 2), 16)
+    const g = parseInt(hex.substr(2, 2), 16)
+    const b = parseInt(hex.substr(4, 2), 16)
+    
+    // Darken each component
+    const darkR = Math.round(r * (1 - factor))
+    const darkG = Math.round(g * (1 - factor))
+    const darkB = Math.round(b * (1 - factor))
+    
+    // Convert back to hex
+    return `#${darkR.toString(16).padStart(2, '0')}${darkG.toString(16).padStart(2, '0')}${darkB.toString(16).padStart(2, '0')}`
+  }
+
   public updateParameters(newParams: Partial<EngineParams>) {
+    const oldZoom = this.params.zoom
     Object.assign(this.params, newParams)
+
+    // If zoom changed, recalculate cell size and grid dimensions
+    if (newParams.zoom !== undefined && newParams.zoom !== oldZoom) {
+      this.cellSize = this.baseCellSize * this.params.zoom
+      // Note: We don't recreate the grid when zoom changes, just render differently
+    }
 
     if (newParams.agentCount !== undefined) {
       this.initializeAgents()
@@ -546,7 +973,7 @@ export class GlyphFieldsEngine {
     const cluster: ClusterSeed = {
       x: Math.floor(this.rng() * this.gridWidth),
       y: Math.floor(this.rng() * this.gridHeight),
-      glyphType: Math.floor(this.rng() * 6) + 1,
+      glyphType: this.params.truffleMode && this.rng() < 0.05 ? GlyphType.TRUFFLE : Math.floor(this.rng() * 6) + 1,
       colorIndex: Math.floor(this.rng() * 12),
       layer: Math.floor(this.rng() * 3),
       maxRadius: 5 + Math.floor(this.rng() * 10),
@@ -564,6 +991,7 @@ export class GlyphFieldsEngine {
       cell.opacity = 0.8
       cell.layer = cluster.layer
       cell.clusterSeed = cluster.id
+      cell.gradientIndex = Math.floor(this.rng() * 6)
     }
   }
 }

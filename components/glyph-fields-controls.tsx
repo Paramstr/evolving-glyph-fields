@@ -6,7 +6,7 @@ import { Slider } from "@/components/ui/slider"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useGlyphFieldsStore } from "@/lib/glyph-fields-store"
-import { PALETTES } from "@/lib/glyph-fields-config"
+import { PALETTES, TRUFFLE_PALETTES } from "@/lib/glyph-fields-config"
 import { Play, Pause, RefreshCw, Dices, Download, Sun, Moon, Zap, Clock } from "lucide-react"
 
 export function GlyphFieldsControls() {
@@ -21,6 +21,10 @@ export function GlyphFieldsControls() {
     isLightMode,
     currentPalette,
     layers,
+    truffleMode,
+    trufflePalette,
+    algorithm,
+    zoom,
     togglePlayback,
     setSeed,
     setDensity,
@@ -34,6 +38,11 @@ export function GlyphFieldsControls() {
     randomize,
     toggleLightMode,
     setLayerProperty,
+    toggleTruffleMode,
+    setTrufflePalette,
+    setAlgorithm,
+    setZoom,
+    resetView,
   } = useGlyphFieldsStore()
 
   const PalettePreview = ({ palette }: { palette: typeof PALETTES[keyof typeof PALETTES] }) => (
@@ -43,6 +52,20 @@ export function GlyphFieldsControls() {
           key={i}
           className="flex-1"
           style={{ backgroundColor: color }}
+        />
+      ))}
+    </div>
+  )
+
+  const TrufflePalettePreview = ({ palette }: { palette: typeof TRUFFLE_PALETTES[keyof typeof TRUFFLE_PALETTES] }) => (
+    <div className="flex gap-0.5 h-6 rounded overflow-hidden shadow-sm">
+      {palette.gradients.slice(0, 6).map((gradient, i) => (
+        <div
+          key={i}
+          className="flex-1"
+          style={{ 
+            background: `linear-gradient(135deg, ${gradient[0]}, ${gradient[1]})` 
+          }}
         />
       ))}
     </div>
@@ -124,7 +147,7 @@ export function GlyphFieldsControls() {
                 value={[layer.decayRate]}
                 onValueChange={([value]) => setLayerProperty(layerName, 'decayRate', value)}
                 min={0.0001}
-                max={0.2}
+                max={0.5}
                 step={0.0001}
                 className={`${
                   isLightMode
@@ -251,19 +274,38 @@ export function GlyphFieldsControls() {
           }`}>
             EVOLVING GLYPH FIELDS
           </h1>
-          <Button
-            onClick={toggleLightMode}
-            variant="outline"
-            size="icon"
-            className={`h-8 w-8 ${
-              isLightMode
-                ? "bg-gray-100 border-gray-200 hover:bg-gray-200 text-gray-700"
-                : "bg-zinc-900 border-zinc-800 hover:bg-zinc-800 text-zinc-300"
-            }`}
-            title="Toggle theme"
-          >
-            {isLightMode ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={toggleTruffleMode}
+              variant="outline"
+              size="sm"
+              className={`h-8 px-3 text-xs ${
+                truffleMode
+                  ? isLightMode
+                    ? "bg-purple-100 border-purple-300 text-purple-700 hover:bg-purple-200"
+                    : "bg-purple-900 border-purple-600 text-purple-300 hover:bg-purple-800"
+                  : isLightMode
+                    ? "bg-gray-100 border-gray-200 hover:bg-gray-200 text-gray-700"
+                    : "bg-zinc-900 border-zinc-800 hover:bg-zinc-800 text-zinc-300"
+              }`}
+              title="Toggle truffle mode"
+            >
+              🍄 Truffle
+            </Button>
+            <Button
+              onClick={toggleLightMode}
+              variant="outline"
+              size="icon"
+              className={`h-8 w-8 ${
+                isLightMode
+                  ? "bg-gray-100 border-gray-200 hover:bg-gray-200 text-gray-700"
+                  : "bg-zinc-900 border-zinc-800 hover:bg-zinc-800 text-zinc-300"
+              }`}
+              title="Toggle theme"
+            >
+              {isLightMode ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+            </Button>
+          </div>
         </div>
         
         {/* Main Controls */}
@@ -340,75 +382,149 @@ export function GlyphFieldsControls() {
           <h2 className={`text-xs font-mono tracking-wider mb-3 ${
             isLightMode ? "text-gray-700" : "text-zinc-300"
           }`}>
-            COLOUR PALETTE
+            {truffleMode ? "TRUFFLE PALETTES" : "COLOUR PALETTE"}
           </h2>
           
           <div className="space-y-3">
-            {/* Active Palette - Full Detail */}
-            {Object.entries(PALETTES)
-              .filter(([name]) => name === currentPalette)
-              .map(([name, palette]) => (
-                <div
-                  key={name}
-                  className={`w-full p-3 rounded-lg border ${
-                    isLightMode
-                      ? "border-gray-400 bg-gray-50 shadow-sm"
-                      : "border-zinc-600 bg-zinc-900 shadow-sm"
-                  }`}
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className={`text-xs font-medium ${
-                        isLightMode ? "text-gray-700" : "text-zinc-300"
-                      }`}>
-                        {name.replace("Light ", "")}
-                      </span>
-                      <span className={`text-[10px] px-2 py-0.5 rounded ${
+            {truffleMode ? (
+              <>
+                {/* Active Truffle Palette - Full Detail */}
+                {Object.entries(TRUFFLE_PALETTES)
+                  .filter(([name]) => name === trufflePalette)
+                  .map(([name, palette]) => (
+                    <div
+                      key={name}
+                      className={`w-full p-3 rounded-lg border ${
                         isLightMode
-                          ? "bg-gray-200 text-gray-600"
-                          : "bg-zinc-800 text-zinc-400"
-                      }`}>
-                        ACTIVE
-                      </span>
-                    </div>
-                    <PalettePreview palette={palette} />
-                  </div>
-                </div>
-              ))}
-
-            {/* Other Palettes - Condensed Grid */}
-            <div className="grid grid-cols-2 gap-2">
-              {Object.entries(PALETTES)
-                .filter(([name]) => name !== currentPalette)
-                .map(([name, palette]) => (
-                  <button
-                    key={name}
-                    onClick={() => setPalette(name)}
-                    className={`p-2 rounded border transition-all text-left ${
-                      isLightMode
-                        ? "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-                        : "border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900"
-                    }`}
-                  >
-                    <div className="space-y-1.5">
-                      <span className={`text-[10px] font-medium block truncate ${
-                        isLightMode ? "text-gray-700" : "text-zinc-300"
-                      }`}>
-                        {name.replace("Light ", "")}
-                      </span>
-                      <div className="flex gap-0.5 h-3 rounded overflow-hidden">
-                        {palette.colors.slice(0, 6).map((color, i) => (
-                          <div
-                            key={i}
-                            className="flex-1"
-                            style={{ backgroundColor: color }}
-                          />
-                        ))}
+                          ? "border-purple-400 bg-purple-50 shadow-sm"
+                          : "border-purple-600 bg-purple-900/20 shadow-sm"
+                      }`}
+                    >
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className={`text-xs font-medium ${
+                            isLightMode ? "text-purple-700" : "text-purple-300"
+                          }`}>
+                            {name}
+                          </span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded ${
+                            isLightMode
+                              ? "bg-purple-200 text-purple-700"
+                              : "bg-purple-800 text-purple-300"
+                          }`}>
+                            ACTIVE
+                          </span>
+                        </div>
+                        <TrufflePalettePreview palette={palette} />
                       </div>
                     </div>
-                  </button>
-                ))}
-            </div>
+                  ))}
+
+                {/* Other Truffle Palettes - Condensed Grid */}
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.entries(TRUFFLE_PALETTES)
+                    .filter(([name]) => name !== trufflePalette)
+                    .map(([name, palette]) => (
+                      <button
+                        key={name}
+                        onClick={() => setTrufflePalette(name)}
+                        className={`p-2 rounded border transition-all text-left ${
+                          isLightMode
+                            ? "border-purple-200 hover:border-purple-300 hover:bg-purple-50"
+                            : "border-purple-800 hover:border-purple-700 hover:bg-purple-900/20"
+                        }`}
+                      >
+                        <div className="space-y-1.5">
+                          <span className={`text-[10px] font-medium block truncate ${
+                            isLightMode ? "text-purple-700" : "text-purple-300"
+                          }`}>
+                            {name}
+                          </span>
+                          <div className="flex gap-0.5 h-3 rounded overflow-hidden">
+                            {palette.gradients.slice(0, 4).map((gradient, i) => (
+                              <div
+                                key={i}
+                                className="flex-1"
+                                style={{ 
+                                  background: `linear-gradient(135deg, ${gradient[0]}, ${gradient[1]})` 
+                                }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Active Regular Palette - Full Detail */}
+                {Object.entries(PALETTES)
+                  .filter(([name]) => name === currentPalette)
+                  .map(([name, palette]) => (
+                    <div
+                      key={name}
+                      className={`w-full p-3 rounded-lg border ${
+                        isLightMode
+                          ? "border-gray-400 bg-gray-50 shadow-sm"
+                          : "border-zinc-600 bg-zinc-900 shadow-sm"
+                      }`}
+                    >
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className={`text-xs font-medium ${
+                            isLightMode ? "text-gray-700" : "text-zinc-300"
+                          }`}>
+                            {name.replace("Light ", "")}
+                          </span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded ${
+                            isLightMode
+                              ? "bg-gray-200 text-gray-600"
+                              : "bg-zinc-800 text-zinc-400"
+                          }`}>
+                            ACTIVE
+                          </span>
+                        </div>
+                        <PalettePreview palette={palette} />
+                      </div>
+                    </div>
+                  ))}
+
+                {/* Other Regular Palettes - Condensed Grid */}
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.entries(PALETTES)
+                    .filter(([name]) => name !== currentPalette)
+                    .map(([name, palette]) => (
+                      <button
+                        key={name}
+                        onClick={() => setPalette(name)}
+                        className={`p-2 rounded border transition-all text-left ${
+                          isLightMode
+                            ? "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                            : "border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900"
+                        }`}
+                      >
+                        <div className="space-y-1.5">
+                          <span className={`text-[10px] font-medium block truncate ${
+                            isLightMode ? "text-gray-700" : "text-zinc-300"
+                          }`}>
+                            {name.replace("Light ", "")}
+                          </span>
+                          <div className="flex gap-0.5 h-3 rounded overflow-hidden">
+                            {palette.colors.slice(0, 6).map((color, i) => (
+                              <div
+                                key={i}
+                                className="flex-1"
+                                style={{ backgroundColor: color }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                </div>
+              </>
+            )}
           </div>
         </section>
 
@@ -488,6 +604,88 @@ export function GlyphFieldsControls() {
                 min={10}
                 max={120}
                 step={5}
+                className={`${
+                  isLightMode
+                    ? "[&_[role=slider]]:bg-green-600"
+                    : "[&_[role=slider]]:bg-green-400"
+                }`}
+              />
+            </div>
+
+            {/* Algorithm Selection */}
+            <div className="space-y-2">
+              <Label className={`text-xs ${
+                isLightMode ? "text-gray-600" : "text-zinc-400"
+              }`}>
+                Algorithm
+              </Label>
+              <Select value={algorithm} onValueChange={setAlgorithm}>
+                <SelectTrigger className={`h-8 text-xs ${
+                  isLightMode
+                    ? "bg-white border-gray-200 text-gray-900"
+                    : "bg-zinc-800 border-zinc-700 text-zinc-100"
+                }`}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className={
+                  isLightMode
+                    ? "bg-white border-gray-200"
+                    : "bg-zinc-800 border-zinc-700"
+                }>
+                  <SelectItem value="gentle-chaos" className={
+                    isLightMode ? "text-gray-900" : "text-zinc-100"
+                  }>
+                    Gentle Chaos
+                  </SelectItem>
+                  <SelectItem value="rhythmic-chaos" className={
+                    isLightMode ? "text-gray-900" : "text-zinc-100"
+                  }>
+                    Rhythmic Chaos
+                  </SelectItem>
+                  <SelectItem value="emergent-complexity" className={
+                    isLightMode ? "text-gray-900" : "text-zinc-100"
+                  }>
+                    Emergent Complexity
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Zoom Control - Live */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className={`text-xs ${
+                  isLightMode ? "text-gray-600" : "text-zinc-400"
+                }`}>
+                  Zoom
+                </Label>
+                <div className="flex items-center gap-2">
+                  <span className={`text-xs font-mono ${
+                    isLightMode ? "text-gray-500" : "text-zinc-500"
+                  }`}>
+                    {zoom.toFixed(1)}x
+                  </span>
+                  <Button
+                    onClick={resetView}
+                    variant="outline"
+                    size="sm"
+                    className={`h-6 px-2 text-[10px] ${
+                      isLightMode
+                        ? "bg-gray-100 border-gray-200 hover:bg-gray-200 text-gray-700"
+                        : "bg-zinc-900 border-zinc-800 hover:bg-zinc-800 text-zinc-300"
+                    }`}
+                    title="Reset zoom and pan"
+                  >
+                    Reset
+                  </Button>
+                </div>
+              </div>
+              <Slider
+                value={[zoom]}
+                onValueChange={([value]) => setZoom(value)}
+                min={0.25}
+                max={8}
+                step={0.1}
                 className={`${
                   isLightMode
                     ? "[&_[role=slider]]:bg-green-600"
@@ -576,7 +774,7 @@ export function GlyphFieldsControls() {
                 value={[decayRate]}
                 onValueChange={([value]) => setDecayRate(value)}
                 min={0.001}
-                max={0.1}
+                max={0.5}
                 step={0.001}
                 className={`${
                   isLightMode
